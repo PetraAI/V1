@@ -27,114 +27,137 @@ tags:
 Inference Speed
 The result is generated using this script, batch size of input is 1, decode strategy is beam search and enforce the model to generate 512 tokens, speed metric is tokens/s (the larger, the better).
 
-The quantized model is loaded using the setup that can gain the fastest inference speed.
+# PETRA 
 
-model	GPU	num_beams	fp16	gptq-int4
-llama-7b	1xA100-40G	1	18.87	25.53
-llama-7b	1xA100-40G	4	68.79	91.30
-moss-moon 16b	1xA100-40G	1	12.48	15.25
-moss-moon 16b	1xA100-40G	4	OOM	42.67
-moss-moon 16b	2xA100-40G	1	06.83	06.78
-moss-moon 16b	2xA100-40G	4	13.10	10.80
-gpt-j 6b	1xRTX3060-12G	1	OOM	29.55
-gpt-j 6b	1xRTX3060-12G	4	OOM	47.36
-Perplexity
-For perplexity comparison, you can turn to here and here
+## Overview
 
-Installation
-Quick Installation
-You can install the latest stable release of AutoGPTQ from pip with pre-built wheels compatible with PyTorch 2.0.1:
+PETRA is a multilingual dataset for training and evaluating AI systems on a diverse range of tasks across multiple modalities. It contains data in Arabic and English for tasks including translation, summarization, question answering, and more.
 
-For CUDA 11.7: pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu117/
-For CUDA 11.8: pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
-For RoCm 5.4.2: pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/rocm542/
-Warning: These wheels are not expected to work on PyTorch nightly. Please install AutoGPTQ from source when using PyTorch nightly.
+## Dataset Structure
 
-disable cuda extensions
-By default, cuda extensions will be installed when torch and cuda is already installed in your machine, if you don't want to use them, using:
+- Data is separated by language into `/ar` and `/en` directories
+- Within each language directory, data is separated by task into subdirectories  
+- Tasks include:
+  - Translation
+  - Summarization
+  - Conversational
+  - Feature extraction
+  - Zero-shot classification
+  - Text generation
+  - Fill mask
+  - Sentence similarity
+  - Text-to-speech
+  - Automatic speech recognition
+  - Text classification
+  - Token classification
+  - Table question answering
+  - Question answering
+  - Text2text generation
+  - Audio-to-audio
+  - Audio classification
+  - Voice activity detection
+  - Depth estimation
+  - Image classification
+  - Object detection
+  - Image segmentation
+  - Text-to-image
+  - Image-to-text
+  - Image-to-image
+  - Unconditional image generation
+  - Reinforcement learning
+  - Video classification
+  - Robotics
+  - Tabular classification
+  - Tabular regression
+  - Table-to-text
+  - Multiple choice
+  - Text retrieval
+  - Tabular-to-text
+  - Text-to-video
+  - Time series forecasting
+  - Visual question answering
+  - Zero-shot image classification
+  - Graph ML
 
-BUILD_CUDA_EXT=0 pip install auto-gptq
-And to make sure autogptq_cuda is not ever in your virtual environment, run:
+## Dataset Tags 
 
-pip uninstall autogptq_cuda -y
-to support triton speedup
-To integrate with triton, using:
+- code
+- art
+- chemistry
+- biology  
+- finance
+- legal
+- music
+- climate
+- medical
 
-warning: currently triton only supports linux; 3-bit quantization is not supported when using triton
+## Dataset Size
 
-pip install auto-gptq[triton]
-Install from source
-click to see details
-Quick Tour
-Quantization and Inference
-warning: this is just a showcase of the usage of basic apis in AutoGPTQ, which uses only one sample to quantize a much small model, quality of quantized model using such little samples may not good.
+1M < n < 10M samples  
 
-Below is an example for the simplest use of auto_gptq to quantize a model and inference after quantization:
+## Licenses
 
-from transformers import AutoTokenizer, TextGenerationPipeline
-from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
-import logging
+Apache 2.0
 
-logging.basicConfig(
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S"
-)
+## Citation
 
-pretrained_model_dir = "facebook/opt-125m"
-quantized_model_dir = "opt-125m-4bit"
+If you use this dataset, please cite it as:
 
-tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=True)
-examples = [
-    tokenizer(
-        "auto-gptq is an easy-to-use model quantization library with user-friendly apis, based on GPTQ algorithm."
-    )
-]
+[cite paper, arXiv, etc] 
 
-quantize_config = BaseQuantizeConfig(
-    bits=4,  # quantize model to 4-bit
-    group_size=128,  # it is recommended to set the value to 128
-    desc_act=False,  # set to False can significantly speed up inference but the perplexity may slightly bad
-)
+@article{PetraAI2022PetraAI,
+  title={PetraAI: A Massive Multilingual Dataset for Machine Learning}, 
+  author={First Last and First Last},
+  journal={arXiv},
+  year={2022},
+  url={https://huggingface.co/datasets/PetraAI/PetraAI}
+}
 
-# load un-quantized model, by default, the model will always be loaded into CPU memory
-model = AutoGPTQForCausalLM.from_pretrained(pretrained_model_dir, quantize_config)
+## Contact
 
-# quantize model, the examples should be list of dict whose keys can only be "input_ids" and "attention_mask"
-model.quantize(examples)
+For any questions, please reach out to [shadilytn@gmail.com]
 
-# save quantized model
-model.save_quantized(quantized_model_dir)
 
-# save quantized model using safetensors
-model.save_quantized(quantized_model_dir, use_safetensors=True)
+# Dataset Cards
 
-# push quantized model to Hugging Face Hub.
-# to use use_auth_token=True, Login first via huggingface-cli login.
-# or pass explcit token with: use_auth_token="hf_xxxxxxx"
-# (uncomment the following three lines to enable this feature)
-# repo_id = f"YourUserName/{quantized_model_dir}"
-# commit_message = f"AutoGPTQ model for {pretrained_model_dir}: {quantize_config.bits}bits, gr{quantize_config.group_size}, desc_act={quantize_config.desc_act}"
-# model.push_to_hub(repo_id, commit_message=commit_message, use_auth_token=True)
+## What are Dataset Cards?
 
-# alternatively you can save and push at the same time
-# (uncomment the following three lines to enable this feature)
-# repo_id = f"YourUserName/{quantized_model_dir}"
-# commit_message = f"AutoGPTQ model for {pretrained_model_dir}: {quantize_config.bits}bits, gr{quantize_config.group_size}, desc_act={quantize_config.desc_act}"
-# model.push_to_hub(repo_id, save_dir=quantized_model_dir, use_safetensors=True, commit_message=commit_message, use_auth_token=True)
+Each dataset may be documented by the `README.md` file in the repository. This file is called a **dataset card**, and the Hugging Face Hub will render its contents on the dataset’s main page. To inform users about how to responsibly use the data, it’s a good idea to include information about any potential biases within the dataset. Generally, dataset cards help users understand the contents of the dataset and give context for how the dataset should be used. 
 
-# load quantized model to the first GPU
-model = AutoGPTQForCausalLM.from_quantized(quantized_model_dir, device="cuda:0")
+You can also add dataset metadata to your card. The metadata describes important information about a dataset such as its license, language, and size. It also contains tags to help users discover a dataset on the Hub. Tags are defined in a YAML metadata section at the top of the `README.md` file.
 
-# download quantized model from Hugging Face Hub and load to the first GPU
-# model = AutoGPTQForCausalLM.from_quantized(repo_id, device="cuda:0", use_safetensors=True, use_triton=False)
+## Dataset card metadata
 
-# inference with model.generate
-print(tokenizer.decode(model.generate(**tokenizer("auto_gptq is", return_tensors="pt").to(model.device))[0]))
+A dataset repo will render its README.md as a dataset card. To control how the Hub displays the card, you should create a YAML section in the README file to define some metadata. Start by adding three --- at the top, then include all of the relevant metadata, and close the section with another group of --- like the example below:
 
-# or you can also use pipeline
-pipeline = TextGenerationPipeline(model=model, tokenizer=tokenizer)
-print(pipeline("auto-gptq is")[0]["generated_text"])
-[Paper](https://drive.google.com/file/d/1cN-b9GnWtHzQRoE7M7gAEyivY0kl4BYs/view) | [Model](https://huggingface.co/bigcode/starcoder) | [Playground](https://huggingface.co/spaces/bigcode/bigcode-playground) | [VSCode](https://marketplace.visualstudio.com/items?itemName=HuggingFace.huggingface-vscode) | [Chat](https://huggingface.co/spaces/HuggingFaceH4/starchat-playground)
 
+The metadata that you add to the dataset card enables certain interactions on the Hub. For example:
+
+- Allow users to filter and discover datasets at https://huggingface.co/datasets.
+  
+- If you choose a license using the keywords listed in the right column of this table, the license will be displayed on the dataset page.
+
+When creating a README.md file in a dataset repository on the Hub, use Metadata UI to fill the main metadata:
+
+To see metadata fields, see the detailed dataset card metadata specification here.
+
+### Dataset card creation guide
+
+For a step-by-step guide on creating a dataset card, check out the Create a dataset card guide. 
+
+Reading through existing dataset cards, such as the ELI5 dataset card, is a great way to familiarize yourself with the common conventions.
+
+### Linking a Paper
+
+If the dataset card includes a link to a paper on arXiv, the Hub will extract the arXiv ID and include it in the dataset tags with the format `arxiv:<PAPER ID>`. Clicking on the tag will let you:
+
+- Visit the Paper page
+  
+- Filter for other models on the Hub that cite the same paper.
+
+Read more about paper pages here.
+
+https://huggingface.co/docs/hub/paper-pages
 # What is StarCoder?
 StarCoder is a language model (LM) trained on source code and natural language text. Its training data incorporates more that 80 different programming languages as well as text extracted from GitHub issues and commits and from notebooks. This repository showcases how we get an overview of this LM's capabilities.
 
@@ -262,7 +285,7 @@ wandb login
 Now that everything is done, you can clone the repository and get into the corresponding directory.
 
 ## Datasets
-💫 StarCoder can be fine-tuned to achieve multiple downstream tasks. Our interest here is to fine-tune StarCoder in order to make it follow instructions. [Instruction fine-tuning](https://arxiv.org/pdf/2109.01652.pdf) has gained a lot of attention recently as it proposes a simple framework that teaches language models to align their outputs with human needs. That procedure requires the availability of quality instruction datasets, which contain multiple `instruction - answer` pairs. Unfortunately such datasets are not ubiquitous but thanks to Hugging Face 🤗's [datasets](https://github.com/huggingface/datasets) library we can have access to some good proxies. To fine-tune cheaply and efficiently, we use Hugging Face 🤗's [PEFT](https://github.com/huggingface/peft) as well as Tim Dettmers' [bitsandbytes](https://github.com/TimDettmers/bitsandbytes).
+StarCoder can be fine-tuned to achieve multiple downstream tasks. Our interest here is to fine-tune StarCoder in order to make it follow instructions. [Instruction fine-tuning](https://arxiv.org/pdf/2109.01652.pdf) has gained a lot of attention recently as it proposes a simple framework that teaches language models to align their outputs with human needs. That procedure requires the availability of quality instruction datasets, which contain multiple `instruction - answer` pairs. Unfortunately such datasets are not ubiquitous but thanks to Hugging Face 🤗's [datasets](https://github.com/huggingface/datasets) library we can have access to some good proxies. To fine-tune cheaply and efficiently, we use Hugging Face 🤗's [PEFT](https://github.com/huggingface/peft) as well as Tim Dettmers' [bitsandbytes](https://github.com/TimDettmers/bitsandbytes).
 
 
 ### Stack Exchange SE
