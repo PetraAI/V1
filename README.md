@@ -1,9 +1,142 @@
-# 💫 StarCoder
+license: apache-2.0
+datasets:
+  - PetraAI/PetraAI
+language:
+  - ar
+  - en
+  - ch
+  - zh
+metrics:
+  - accuracy
+  - bertscore
+  - bleu
+  - chrf
+  - code_eval
+  - brier_score
+tags:
+  - chemistry
+  - biology
+  - finance
+  - legal
+  - music
+  - code
+  - art
+  - climate
+  - medical
+  - text-generation-inference
+Inference Speed
+The result is generated using this script, batch size of input is 1, decode strategy is beam search and enforce the model to generate 512 tokens, speed metric is tokens/s (the larger, the better).
 
+The quantized model is loaded using the setup that can gain the fastest inference speed.
+
+model	GPU	num_beams	fp16	gptq-int4
+llama-7b	1xA100-40G	1	18.87	25.53
+llama-7b	1xA100-40G	4	68.79	91.30
+moss-moon 16b	1xA100-40G	1	12.48	15.25
+moss-moon 16b	1xA100-40G	4	OOM	42.67
+moss-moon 16b	2xA100-40G	1	06.83	06.78
+moss-moon 16b	2xA100-40G	4	13.10	10.80
+gpt-j 6b	1xRTX3060-12G	1	OOM	29.55
+gpt-j 6b	1xRTX3060-12G	4	OOM	47.36
+Perplexity
+For perplexity comparison, you can turn to here and here
+
+Installation
+Quick Installation
+You can install the latest stable release of AutoGPTQ from pip with pre-built wheels compatible with PyTorch 2.0.1:
+
+For CUDA 11.7: pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu117/
+For CUDA 11.8: pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
+For RoCm 5.4.2: pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/rocm542/
+Warning: These wheels are not expected to work on PyTorch nightly. Please install AutoGPTQ from source when using PyTorch nightly.
+
+disable cuda extensions
+By default, cuda extensions will be installed when torch and cuda is already installed in your machine, if you don't want to use them, using:
+
+BUILD_CUDA_EXT=0 pip install auto-gptq
+And to make sure autogptq_cuda is not ever in your virtual environment, run:
+
+pip uninstall autogptq_cuda -y
+to support triton speedup
+To integrate with triton, using:
+
+warning: currently triton only supports linux; 3-bit quantization is not supported when using triton
+
+pip install auto-gptq[triton]
+Install from source
+click to see details
+Quick Tour
+Quantization and Inference
+warning: this is just a showcase of the usage of basic apis in AutoGPTQ, which uses only one sample to quantize a much small model, quality of quantized model using such little samples may not good.
+
+Below is an example for the simplest use of auto_gptq to quantize a model and inference after quantization:
+
+from transformers import AutoTokenizer, TextGenerationPipeline
+from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+import logging
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+pretrained_model_dir = "facebook/opt-125m"
+quantized_model_dir = "opt-125m-4bit"
+
+tokenizer = AutoTokenizer.from_pretrained(pretrained_model_dir, use_fast=True)
+examples = [
+    tokenizer(
+        "auto-gptq is an easy-to-use model quantization library with user-friendly apis, based on GPTQ algorithm."
+    )
+]
+
+quantize_config = BaseQuantizeConfig(
+    bits=4,  # quantize model to 4-bit
+    group_size=128,  # it is recommended to set the value to 128
+    desc_act=False,  # set to False can significantly speed up inference but the perplexity may slightly bad
+)
+
+# load un-quantized model, by default, the model will always be loaded into CPU memory
+model = AutoGPTQForCausalLM.from_pretrained(pretrained_model_dir, quantize_config)
+
+# quantize model, the examples should be list of dict whose keys can only be "input_ids" and "attention_mask"
+model.quantize(examples)
+
+# save quantized model
+model.save_quantized(quantized_model_dir)
+
+# save quantized model using safetensors
+model.save_quantized(quantized_model_dir, use_safetensors=True)
+
+# push quantized model to Hugging Face Hub.
+# to use use_auth_token=True, Login first via huggingface-cli login.
+# or pass explcit token with: use_auth_token="hf_xxxxxxx"
+# (uncomment the following three lines to enable this feature)
+# repo_id = f"YourUserName/{quantized_model_dir}"
+# commit_message = f"AutoGPTQ model for {pretrained_model_dir}: {quantize_config.bits}bits, gr{quantize_config.group_size}, desc_act={quantize_config.desc_act}"
+# model.push_to_hub(repo_id, commit_message=commit_message, use_auth_token=True)
+
+# alternatively you can save and push at the same time
+# (uncomment the following three lines to enable this feature)
+# repo_id = f"YourUserName/{quantized_model_dir}"
+# commit_message = f"AutoGPTQ model for {pretrained_model_dir}: {quantize_config.bits}bits, gr{quantize_config.group_size}, desc_act={quantize_config.desc_act}"
+# model.push_to_hub(repo_id, save_dir=quantized_model_dir, use_safetensors=True, commit_message=commit_message, use_auth_token=True)
+
+# load quantized model to the first GPU
+model = AutoGPTQForCausalLM.from_quantized(quantized_model_dir, device="cuda:0")
+
+# download quantized model from Hugging Face Hub and load to the first GPU
+# model = AutoGPTQForCausalLM.from_quantized(repo_id, device="cuda:0", use_safetensors=True, use_triton=False)
+
+# inference with model.generate
+print(tokenizer.decode(model.generate(**tokenizer("auto_gptq is", return_tensors="pt").to(model.device))[0]))
+
+# or you can also use pipeline
+pipeline = TextGenerationPipeline(model=model, tokenizer=tokenizer)
+print(pipeline("auto-gptq is")[0]["generated_text"])
 [Paper](https://drive.google.com/file/d/1cN-b9GnWtHzQRoE7M7gAEyivY0kl4BYs/view) | [Model](https://huggingface.co/bigcode/starcoder) | [Playground](https://huggingface.co/spaces/bigcode/bigcode-playground) | [VSCode](https://marketplace.visualstudio.com/items?itemName=HuggingFace.huggingface-vscode) | [Chat](https://huggingface.co/spaces/HuggingFaceH4/starchat-playground)
 
-# What is this about?
-💫 StarCoder is a language model (LM) trained on source code and natural language text. Its training data incorporates more that 80 different programming languages as well as text extracted from GitHub issues and commits and from notebooks. This repository showcases how we get an overview of this LM's capabilities.
+# What is StarCoder?
+StarCoder is a language model (LM) trained on source code and natural language text. Its training data incorporates more that 80 different programming languages as well as text extracted from GitHub issues and commits and from notebooks. This repository showcases how we get an overview of this LM's capabilities.
 
 # News
 
